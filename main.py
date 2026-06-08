@@ -7,8 +7,8 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 # 1. SOZLAMALAR
-API_TOKEN = 'TOKENINGIZNI_YOZING'
-GROUP_ID = -100123456789 # Guruh ID
+API_TOKEN = '8643267988:AAEagHn5yWtylv1M6vdy6ljtFy81OTqySVg'
+GROUP_ID = -1003962798702 # 
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
