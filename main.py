@@ -1,63 +1,63 @@
-import logging
+import asyncio
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-from flask import Flask
-from threading import Thread
-import asyncio
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
-API_TOKEN = '8643267988:AAEagHn5yWtylv1M6vdy6ljtFy81OTqySVg'
+# 1. SOZLAMALAR
+API_TOKEN = 'TOKENINGIZNI_YOZING'
+GROUP_ID = -100123456789 # Guruh ID
+
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
-# 24/7 ishlashi uchun
-app = Flask('')
-@app.route('/')
-def home(): return "Bot ishlayapti!"
-def run(): app.run(host='0.0.0.0', port=8080)
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
-
-# Holatlar
-class ClientOrder(StatesGroup):
+# 2. HOLATLAR
+class OrderProcess(StatesGroup):
     choosing_service = State()
+    choosing_district = State()
     getting_info = State()
 
-# Guruh ID
-GROUP_ID = -1002166649867 
+# 3. KNOPKALAR (5 ta xizmat + tumanlar)
+service_kb = ReplyKeyboardMarkup(keyboard=[
+    [KeyboardButton(text="🛠 Santexnik"), KeyboardButton(text="⚡️ Elektrik")],
+    [KeyboardButton(text="❄️ Maishiy texnika"), KeyboardButton(text="🪑 Mebel ustasi"), KeyboardButton(text="🧱 Qurilish")],
+], resize_keyboard=True)
 
+district_kb = ReplyKeyboardMarkup(keyboard=[
+    [KeyboardButton(text="Chilonzor"), KeyboardButton(text="Yunusobod")],
+    [KeyboardButton(text="Mirobod"), KeyboardButton(text="Yakkasaroy"), KeyboardButton(text="Shayxontohur")],
+    [KeyboardButton(text="Bektemir"), KeyboardButton(text="Sergeli"), KeyboardButton(text="Olmazor")],
+    [KeyboardButton(text="Uchtepa"), KeyboardButton(text="Mirzo Ulug'bek")]
+], resize_keyboard=True)
+
+# 4. FUNKSIYALAR
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="👤 Mijoz"), KeyboardButton(text="🛠️ Usta")]], resize_keyboard=True)
-    await message.answer("UstaTop-ga xush kelibsiz! Kim sifatida davom etasiz?", reply_markup=kb)
+    await message.answer("UstaTop-ga xush kelibsiz! Qaysi xizmat turini tanlaysiz?", reply_markup=service_kb)
 
-@dp.message(F.text == "👤 Mijoz")
-async def client_start(message: types.Message, state: FSMContext):
-    kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="🚰 Santexnik"), KeyboardButton(text="⚡ Elektrik")]], resize_keyboard=True)
-    await state.set_state(ClientOrder.choosing_service)
-    await message.answer("Xizmat turini tanlang:", reply_markup=kb)
-
-@dp.message(ClientOrder.choosing_service)
-async def get_client_info(message: types.Message, state: FSMContext):
+@dp.message(OrderProcess.choosing_service) # Xizmat tanlash
+async def get_district(message: types.Message, state: FSMContext):
     await state.update_data(service=message.text)
-    await state.set_state(ClientOrder.getting_info)
-    await message.answer("Ism, telefon raqam va manzilingizni yozing:", reply_markup=ReplyKeyboardRemove())
+    await message.answer("Tumaningizni tanlang:", reply_markup=district_kb)
+    await state.set_state(OrderProcess.choosing_district)
 
-@dp.message(ClientOrder.getting_info)
-async def finish_order(message: types.Message, state: FSMContext):
+@dp.message(OrderProcess.choosing_district) # Tuman tanlash
+async def get_info(message: types.Message, state: FSMContext):
+    await state.update_data(district=message.text)
+    await message.answer("Oxirgi qadam: Ism va telefon raqamingizni yozing:", reply_markup=types.ReplyKeyboardRemove())
+    await state.set_state(OrderProcess.getting_info)
+
+@dp.message(OrderProcess.getting_info)
+async def finalize_order(message: types.Message, state: FSMContext):
     data = await state.get_data()
-    text = f"🔔 **YANGI BUYURTMA!**\n🛠 Xizmat: {data['service']}\n👤 Mijoz: {message.from_user.full_name}\n📞 Ma'lumot: {message.text}"
-    await bot.send_message(GROUP_ID, text, parse_mode="Markdown")
-    await message.answer("✅ Arizangiz qabul qilindi, ustalarimiz tez orada bog'lanishadi!")
+    text = (f"🔔 YANGI BUYURTMA!\n"
+            f"🛠 Xizmat: {data['service']}\n"
+            f"📍 Tuman: {data['district']}\n"
+            f"👤 Mijoz: {message.from_user.full_name}\n"
+            f"📞 Ma'lumot: {message.text}")
+    
+    await bot.send_message(GROUP_ID, text)
+    await message.answer("✅ Arizangiz qabul qilindi! Ustalarimiz tez orada siz bilan bog'lanishadi.")
     await state.clear()
-
-async def main():
-    keep_alive()
-    await dp.start_polling(bot)
-
-if __name__ == '__main__':
-    asyncio.run(main())
